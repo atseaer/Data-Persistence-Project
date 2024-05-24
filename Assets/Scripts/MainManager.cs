@@ -1,8 +1,11 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.IO;
+
 
 public class MainManager : MonoBehaviour
 {
@@ -12,11 +15,16 @@ public class MainManager : MonoBehaviour
 
     public Text ScoreText;
     public GameObject GameOverText;
+    public Text recordText;
     
     private bool m_Started = false;
     private int m_Points;
     
     private bool m_GameOver = false;
+
+    private string recordName;
+    private int recordScore;
+    private string userName;
 
     
     // Start is called before the first frame update
@@ -36,6 +44,19 @@ public class MainManager : MonoBehaviour
                 brick.onDestroyed.AddListener(AddPoint);
             }
         }
+
+        userName = PersistentData.Instance.userName;
+
+        if (File.Exists(Application.persistentDataPath + "/savefile.json"))
+        {
+            LoadRecord();
+        }
+        else
+        {
+            recordName = "";
+            recordScore = 0;
+        }
+        recordText.text = $"Best Score: {recordName}: {recordScore}";
     }
 
     private void Update()
@@ -45,19 +66,22 @@ public class MainManager : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 m_Started = true;
-                float randomDirection = Random.Range(-1.0f, 1.0f);
+                float randomDirection = UnityEngine.Random.Range(-1.0f, 1.0f);
                 Vector3 forceDir = new Vector3(randomDirection, 1, 0);
                 forceDir.Normalize();
 
                 Ball.transform.SetParent(null);
                 Ball.AddForce(forceDir * 2.0f, ForceMode.VelocityChange);
             }
+
+
+
         }
         else if (m_GameOver)
         {
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                SceneManager.LoadScene("Menu");
             }
         }
     }
@@ -66,11 +90,46 @@ public class MainManager : MonoBehaviour
     {
         m_Points += point;
         ScoreText.text = $"Score : {m_Points}";
+        if (m_Points > recordScore)
+        {
+            recordName = PersistentData.Instance.userName;
+            recordScore = m_Points;
+            recordText.text = $"Best Score: {recordName}: {recordScore}";
+        }
     }
 
     public void GameOver()
     {
         m_GameOver = true;
+        SaveRecord();
         GameOverText.SetActive(true);
+    }
+
+    [System.Serializable]
+    class SaveData
+    {
+        public string recordName;
+        public int recordScore;
+    }
+
+    private void SaveRecord()
+    {
+        SaveData data = new SaveData();
+        data.recordName = recordName;
+        data.recordScore = recordScore;
+        string json = JsonUtility.ToJson(data);
+        File.WriteAllText(Application.persistentDataPath + "/savefile.json",json);
+    }
+
+    private void LoadRecord()
+    {
+        string path = Application.persistentDataPath + "/savefile.json";
+        if (File.Exists(path))
+        {
+            string json = File.ReadAllText(path);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+            recordName = data.recordName; 
+            recordScore = data.recordScore;
+        }
     }
 }
